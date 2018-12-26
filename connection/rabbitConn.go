@@ -1,6 +1,7 @@
 package rabbitconn
 
 import (
+	"errors"
 	"log"
 
 	"github.com/streadway/amqp"
@@ -26,12 +27,37 @@ func RegisterQueue(queueName string) {
 	queueMap[queueName] = q
 }
 
-func Publish(queueName string, data []byte) {
-
+func Publish(queueName string, data []byte) error {
+	q, ok := queueMap[queueName]
+	if !ok {
+		return errors.New("Queue not yet registed")
+	}
+	err := rabbitChannel.Publish(
+		"",     // exchange
+		q.Name, // routing key
+		false,  // mandatory
+		false,  // immediate
+		amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte(data),
+		})
+	return err
 }
 
-func GetConsumer(queueName string) {
-
+func GetConsumer(queueName string) (<-chan amqp.Delivery, error) {
+	q, ok := queueMap[queueName]
+	if !ok {
+		return nil, errors.New("Queue not yet registed")
+	}
+	return rabbitChannel.Consume(
+		q.Name, // queue
+		"",     // consumer
+		true,   // auto-ack
+		false,  // exclusive
+		false,  // no-local
+		false,  // no-wait
+		nil,    // args
+	)
 }
 
 func GetConn() *amqp.Connection {
